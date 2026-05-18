@@ -1,0 +1,146 @@
+project:
+  name: "IFCM-TransUNet-FMRCNN-Emphysema"
+  task: "Early emphysema segmentation, detection, and classification from lung CT images"
+  seed: 42
+  device: "cuda"
+
+paths:
+  dataset_root: "dataset"
+  train_images: "dataset/train/images"
+  train_masks: "dataset/train/masks"
+  train_labels: "dataset/train/labels.csv"
+  val_images: "dataset/val/images"
+  val_masks: "dataset/val/masks"
+  val_labels: "dataset/val/labels.csv"
+  test_images: "dataset/test/images"
+  test_masks: "dataset/test/masks"
+  test_labels: "dataset/test/labels.csv"
+  output_dir: "outputs"
+  checkpoint_dir: "outputs/checkpoints"
+  figure_dir: "outputs/figures"
+  prediction_dir: "outputs/predictions"
+  metric_dir: "outputs/metrics"
+
+data:
+  image_size: 256
+  original_size: 512
+  in_channels: 1
+  num_classes: 4
+  class_names:
+    - "Normal_Tissue"
+    - "Centrilobular_Emphysema"
+    - "Panlobular_Emphysema"
+    - "Paraseptal_Emphysema"
+  mask_threshold: 0.5
+  num_workers: 2
+
+preprocessing:
+  normalize: true
+  clahe:
+    enabled: true
+    clip_limit: 2.0
+    tile_grid_size: [8, 8]
+  median_filter:
+    enabled: true
+    kernel_size: 3
+  augmentation:
+    enabled: true
+    probability: 0.5
+    rotation_limit: 15
+    scale_limit: 0.20
+    horizontal_flip: true
+    vertical_flip: true
+    brightness_contrast: true
+    elastic_transform: true
+
+ifcm:
+  enabled: true
+  clusters: 3
+  fuzziness: 2.0
+  spatial_weight: 0.30
+  max_iterations: 100
+  tolerance: 0.0001
+  neighborhood_size: 3
+
+transunet:
+  enabled: true
+  input_size: 256
+  patch_size: 16
+  embed_dim: 256
+  transformer_layers: 12
+  attention_heads: 8
+  mlp_dim: 512
+  dropout: 0.10
+  decoder_channels: [256, 128, 64, 32]
+  output_channels: 1
+
+fmrcnn:
+  enabled: true
+  backbone: "resnet50_fpn"
+  pretrained_backbone: true
+  min_size: 256
+  max_size: 512
+  anchor_sizes: [32, 64, 128, 256, 512]
+  aspect_ratios: [0.5, 1.0, 2.0]
+  box_score_threshold: 0.50
+  nms_threshold: 0.40
+  detections_per_image: 50
+
+training:
+  epochs: 50
+  batch_size: 16
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  optimizer: "adamw"
+  scheduler: "reduce_on_plateau"
+  scheduler_patience: 5
+  scheduler_factor: 0.1
+  early_stopping_patience: 10
+  gradient_clip: 1.0
+  save_best_only: true
+
+loss:
+  segmentation:
+    bce_weight: 0.50
+    dice_weight: 0.50
+  detection:
+    classification_weight: 1.0
+    box_weight: 1.0
+    mask_weight: 1.0
+
+evaluation:
+  threshold: 0.5
+  cross_validation_folds: 5
+  bootstrap_samples: 1000
+  metrics:
+    - "accuracy"
+    - "dice"
+    - "iou"
+    - "precision"
+    - "recall"
+    - "specificity"
+    - "f1_score"
+    - "map"
+    - "roc_auc"
+    - "mse"
+    - "mae"
+    - "rmse"
+
+inference:
+  checkpoint_path: "outputs/checkpoints/best_model.pth"
+  input_path: "dataset/test/images"
+  save_overlay: true
+  save_mask: true
+  save_detection_map: true
+
+figures:
+  dpi: 300
+  save_format: "png"
+  generate:
+    - "training_accuracy"
+    - "training_loss"
+    - "roc_curve"
+    - "confusion_matrix"
+    - "segmentation_overlay"
+    - "detection_map"
+    - "metric_comparison"
